@@ -119,8 +119,8 @@ public:
               << "  Type         "
               << "Metadata" << std::endl                                  // 0
               << "  Version      " << version << std::endl                // 6
-              << "  XRef Offset  " << 0xdeadbeef << std::endl             // 8
-              << "  Data Streams " << streams.size() + 42067 << std::endl // 4
+              << "  XRef Offset  " << cross_reference_offset() << std::endl // 8
+              << "  Data Streams " << streams.size() << std::endl         // 4
               << "  ID           " << 0 << std::endl
               << "  Created      " << created            // 4
               << "  Last Update  " << updated            // 4
@@ -163,7 +163,7 @@ public:
     }
 
     std::cout << std::endl
-              << "...[42,067 data streams omitted]..." << std::endl
+              << "...[" << streams.size() << " data streams total]..." << std::endl
               << std::endl;
 
     std::cout << STREAM_HEADER << std::endl
@@ -179,9 +179,9 @@ public:
       std::cout << std::dec << "    " << s.reading_index << ": " << k.first
                 << " " << s.offset << std::endl;
     }
-    std::cout << "    ...[42,067 index values ommitted]..." << std::endl;
+    std::cout << "    ...[" << xref_table.size() << " index values total]..." << std::endl;
 
-    std::cout << "  Cross Reference Offset " << 0xdeadbeef << std::endl; // 8
+    std::cout << "  Cross Reference Offset " << cross_reference_offset() << std::endl; // 8
 
     std::cout << std::endl << SPDF_FOOTER << std::endl; // 5
   }
@@ -207,7 +207,10 @@ public:
   }
 
 private:
+  static constexpr std::size_t HEADER_SIZE = 67;
+  static constexpr std::size_t STREAM_META_SIZE = 89;
   std::size_t _curr_read_idx = 0;
+
   void _rebuild_xref_table() {
     xref_table.clear();
     for (std::size_t i = 0; i < streams.size(); ++i) {
@@ -218,11 +221,20 @@ private:
     if (_curr_read_idx == 0)
       stream->offset = 67;  // header
 
-    if (_curr_read_idx == 1)
-      stream->offset = 67+89+12;  // stream[0].offset + stream[1].metadata + stream[1].data
+  std::size_t cross_reference_offset() const {
+    if (streams.empty())
+      return HEADER_SIZE;
+    const auto &last = streams.back();
+    return last->offset + STREAM_META_SIZE + last->data.size();
+  }
 
-    if (_curr_read_idx == 2)
-      stream->offset = 67+89+12+89+16;  // stream[1].offset + stream[2].metadata + stream[2].data
+  void _addStream(std::unique_ptr<DataStream> stream) {
+    if (_curr_read_idx == 0) {
+      stream->offset = HEADER_SIZE;
+    } else {
+      const auto &prev = streams.back();
+      stream->offset = prev->offset + STREAM_META_SIZE + prev->data.size();
+    }
 
     stream->reading_index = _curr_read_idx++;
     updated = stopwatch::add_timestamp();
