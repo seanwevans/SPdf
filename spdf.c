@@ -42,15 +42,6 @@ char *generate_id() {
   return id;
 }
 
-uint32_t hash(unsigned char *str) {
-  uint32_t h = 5381;
-  int c;
-
-  while ((c = *str++))
-    h = ((h << 5) + h) + c;
-
-  return h;
-}
 
 
 // stream.c
