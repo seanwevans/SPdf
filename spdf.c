@@ -1,34 +1,7 @@
-#include <errno.h>
-#include <pthread.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
+#include "spdf.h"
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
-
-#define VERSION "000.000.001"
-#define VERSION_LEN 12
-#define ID_CHARS "0123456789ABCDEFGHIJKLMNOPQRSATUVWXYZ"
-#define ID_LEN 36
-
-#define WRITE_AND_CHECK(stream, member, out)                                   \
-  do {                                                                         \
-    errno = 0;                                                                 \
-    if (fwrite(&(stream)->member, sizeof((stream)->member), 1, (out)) < 1 ||   \
-        errno)                                                                 \
-      return false;                                                            \
-  } while (0)
-
-#define READ_AND_CHECK(stream, member, in)                                     \
-  do {                                                                         \
-    errno = 0;                                                                 \
-    if (fread(&(stream)->member, sizeof((stream)->member), 1, (in)) < 1 ||     \
-        errno)                                                                 \
-      return false;                                                            \
-  } while (0)
-
 
 // utils.c
 char *generate_id() {
@@ -54,38 +27,6 @@ uint32_t hash(unsigned char *str) {
 
 
 // stream.c
-enum stream_type {
-  METADATA_STREAM = 0,
-  XREF_STREAM,
-  DATA_STREAM,
-};
-
-enum encoding {
-  UTF8 = 0,
-};
-
-enum mime_type {
-  TEXT = 0,
-  BINARY,
-};
-
-enum compression { NO_COMPRESSION = 0, ZIP, TAR };
-
-typedef struct {
-  uint8_t stream_type;
-  char version[VERSION_LEN]; // 105.512.001
-  char id[ID_LEN];           // ab44a3f5-a8f7-4b4b-a354-4f313404630b
-  time_t created;
-  time_t updated;
-  double position[2];
-  uint8_t encoding;
-  uint8_t mime_type;
-  uint8_t compression;
-  size_t offset;
-  size_t reading_idx;
-  size_t data_size;
-  void *data;
-} spdf_stream_t;
 
 void print_stream(spdf_stream_t *stream) {
   puts("\n=== STREAM ===");
@@ -126,7 +67,11 @@ spdf_stream_t *create_stream(void *data, size_t size) {
   stream->created = time(NULL);
   stream->stream_type = DATA_STREAM;
   strncpy(stream->version, VERSION, VERSION_LEN);
-  stream->data = (void*)calloc(size, sizeof(char));
+  stream->data = calloc(size, sizeof(char));
+  if (!stream->data) {
+    free(stream);
+    return NULL;
+  }
   stream->data_size = size;
 
   stream->updated = time(NULL);
@@ -187,18 +132,6 @@ bool deserialize_spdf_stream_t(spdf_stream_t *stream, FILE *in) {
 }
 
 // spdf.c
-typedef struct {
-  pthread_mutex_t *lock;
-  char version[VERSION_LEN];
-  char id[ID_LEN];
-  time_t created;
-  time_t updated;
-  size_t xref_offset;
-  size_t n_streams;
-  size_t max_streams;
-  spdf_stream_t **streams;
-} spdf_t;
-
 void print_spdf(spdf_t *doc) {
   puts("\n=== SPDF ===");
   printf("  🆚 %s\n", doc->version);
@@ -220,10 +153,8 @@ bool add_stream(spdf_stream_t *stream, spdf_t *doc) {
   if (stream->stream_type == DATA_STREAM)
     printf("+ 💧 %p", stream);
 
-  if (doc->n_streams >= doc->max_streams) {
-    puts(" ❌ full");
+  if (doc->n_streams >= doc->max_streams)
     return false;
-  }
 
   pthread_mutex_lock(doc->lock);
   printf(" 🔒");
@@ -248,15 +179,11 @@ bool add_stream(spdf_stream_t *stream, spdf_t *doc) {
 
 bool remove_stream(spdf_stream_t *stream, spdf_t *doc) {
   printf("- 💧 %p", stream);
-  if (doc->n_streams <= 2) {
-    puts(" ❌ empty");
+  if (doc->n_streams <= 2)
     return false;
-  }
 
-  if (stream->stream_type != DATA_STREAM) {
-    puts(" ❌ must be data stream");
+  if (stream->stream_type != DATA_STREAM)
     return false;
-  }
 
   pthread_mutex_lock(doc->lock);
   printf(" 🔒");
@@ -283,7 +210,6 @@ bool remove_stream(spdf_stream_t *stream, spdf_t *doc) {
   }
 
   pthread_mutex_unlock(doc->lock);
-  printf(" 🔓 ❌ failed to find '%s' in doc\n", stream->id);
   return false;
 }
 
@@ -299,10 +225,16 @@ spdf_t *create_spdf(size_t max_elements) {
   doc->max_streams = max_elements + 2;
 
   doc->lock = (pthread_mutex_t *)calloc(1, sizeof(*doc->lock));
-  if (!doc->lock)
+  if (!doc->lock) {
+    free(doc);
     return NULL;
+  }
 
-  pthread_mutex_init(doc->lock, NULL);
+  if (pthread_mutex_init(doc->lock, NULL) != 0) {
+    free(doc->lock);
+    free(doc);
+    return NULL;
+  }
   printf(" 🔓\n");
 
   strncpy(doc->id, generate_id(), ID_LEN);
@@ -310,6 +242,8 @@ spdf_t *create_spdf(size_t max_elements) {
   doc->streams =
       (spdf_stream_t **)calloc(max_elements + 2, sizeof(spdf_stream_t *));
   if (!doc->streams) {
+    pthread_mutex_destroy(doc->lock);
+    free(doc->lock);
     free(doc);
     return NULL;
   }
@@ -328,8 +262,10 @@ bool destroy_spdf(spdf_t *doc) {
     if (doc->streams[i])
       free(doc->streams[i]);
 
-  if (doc->lock)
+  if (doc->lock) {
     pthread_mutex_destroy(doc->lock);
+    free(doc->lock);
+  }
 
   if (doc)
     free(doc);
@@ -380,6 +316,8 @@ bool load_spdf(spdf_t *document, FILE *in) {
   // Read streams
   for (size_t i = 0; i < document->n_streams; ++i) {
     document->streams[i] = (spdf_stream_t *)calloc(1, sizeof(spdf_stream_t));
+    if (!document->streams[i])
+      return false;
     if (deserialize_spdf_stream_t(document->streams[i], in) == false)
       return false;
   }
@@ -387,44 +325,3 @@ bool load_spdf(spdf_t *document, FILE *in) {
   return true;
 }
 
-// main.c
-int main(int argc, char *argv[]) {
-  srand(time(NULL));
-
-  spdf_t *doc = create_spdf(32);
-  if (!doc) {
-    fprintf(stderr, "Failed to create spdf");
-    return EXIT_FAILURE;
-  }
-  sleep(1);
-
-  for (size_t i = 0; i < doc->max_streams - 2; i++) {
-    if (!add_stream(create_stream((void *)i, 1), doc)) {
-      destroy_spdf(doc);
-      fprintf(stderr, "failed to add stream");
-      return EXIT_FAILURE;
-    }
-  }
-
-  add_stream(create_stream((void *)0xdeadbeef, 1), doc);
-  print_spdf(doc);
-
-  sleep(1);
-  for (size_t i = 2; i < doc->max_streams; i++) {
-    if (!remove_stream(doc->streams[i], doc)) {
-      destroy_spdf(doc);
-      fprintf(stderr, "failed to remove stream");
-      return EXIT_FAILURE;
-    }
-  }
-
-  remove_stream(create_stream((void *)0xdeadbeef, 1), doc);
-  print_spdf(doc);
-
-  if (!destroy_spdf(doc)) {
-    fprintf(stderr, "failed to destroy spdf");
-    return EXIT_FAILURE;
-  }
-
-  return EXIT_SUCCESS;
-}
