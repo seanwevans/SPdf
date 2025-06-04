@@ -109,6 +109,10 @@ spdf_stream_t *create_default_metadata_stream() {
   return stream;
 }
 
+/*
+ * create_stream duplicates the caller provided buffer. The caller retains
+ * ownership of the original memory.
+ */
 spdf_stream_t *create_stream(void *data, size_t size) {
   spdf_stream_t *stream = (spdf_stream_t *)calloc(1, sizeof(spdf_stream_t));
   if (!stream)
@@ -118,6 +122,8 @@ spdf_stream_t *create_stream(void *data, size_t size) {
   stream->stream_type = DATA_STREAM;
   strncpy(stream->version, VERSION, VERSION_LEN);
   stream->data = (void*)calloc(size, sizeof(char));
+  if (stream->data && data)
+    memcpy(stream->data, data, size);
   stream->data_size = size;
 
   stream->updated = time(NULL);
