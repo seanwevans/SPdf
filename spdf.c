@@ -160,7 +160,9 @@ bool serialize_spdf_stream_t(const spdf_stream_t *stream, FILE *out) {
 
   // Write variable-length data
   if (stream->data_size > 0 && stream->data != NULL) {
-    WRITE_AND_CHECK(stream, data, out);
+    errno = 0;
+    if (fwrite(stream->data, stream->data_size, 1, out) < 1 || errno)
+      return false;
   }
 
   return true;
@@ -179,6 +181,15 @@ bool deserialize_spdf_stream_t(spdf_stream_t *stream, FILE *in) {
   READ_AND_CHECK(stream, offset, in);
   READ_AND_CHECK(stream, reading_idx, in);
   READ_AND_CHECK(stream, data_size, in);
+
+  if (stream->data_size > 0) {
+    stream->data = calloc(stream->data_size, 1);
+    if (stream->data == NULL)
+      return false;
+    errno = 0;
+    if (fread(stream->data, stream->data_size, 1, in) < 1 || errno)
+      return false;
+  }
 
   return true;
 }
