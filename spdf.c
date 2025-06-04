@@ -273,9 +273,9 @@ bool remove_stream(spdf_stream_t *stream, spdf_t *doc) {
       continue;
 
     doc->xref_offset -= sizeof(spdf_stream_t) + stream->data_size;
-    if (doc->streams[i]->data) {
-      free(doc->streams[i]->data);
-    }
+
+    free(doc->streams[i]->data);
+    doc->streams[i]->data_size = 0;
     memset(doc->streams[i], 0, sizeof(spdf_stream_t));
     doc->streams[i]->stream_type = METADATA_STREAM;
     strncpy(doc->streams[i]->version, VERSION, VERSION_LEN);
