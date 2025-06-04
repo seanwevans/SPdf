@@ -97,6 +97,7 @@ void SPDF::print() {
   for (const auto &streamPtr : streams) {
     std::cout << std::dec << std::endl
               << STREAM_HEADER << std::endl
+
               << "  Type          " << streamPtr->type << std::endl
               << "  Version       " << streamPtr->version << std::endl
               << "  ID            " << streamPtr->uuid << std::endl
@@ -113,6 +114,7 @@ void SPDF::print() {
     for (int i = 0; i < 5 && i < static_cast<int>(streamPtr->data.size()); i++)
       std::cout << std::hex << static_cast<int>(streamPtr->data[i]) << " ";
     if (streamPtr->data.size() > 10) {
+
       std::cout << std::dec << "...[" << streamPtr->data.size() - 10
                 << " bytes omitted]... ";
       for (int i = 5; i > 0; i--)
@@ -120,7 +122,9 @@ void SPDF::print() {
                   << static_cast<int>(streamPtr->data[streamPtr->data.size() - i])
                   << " ";
     }
+
     std::cout << std::dec << std::endl;
+
   }
 
   std::cout << std::endl
@@ -133,15 +137,14 @@ void SPDF::print() {
             << "  ID            " << 1 << std::endl
             << "  Cross Reference Table" << std::endl;
 
+
   for (const auto &k : xref_table) {
     auto &s = find_stream_by_id(k.first);
     std::cout << std::dec << "    " << s.reading_index << ": " << k.first
               << " " << s.offset << std::endl;
   }
   std::cout << "    ...[42,067 index values ommitted]..." << std::endl;
-
   std::cout << "  Cross Reference Offset " << 0xdeadbeef << std::endl;
-
   std::cout << std::endl << SPDF_FOOTER << std::endl;
 }
 
@@ -164,6 +167,7 @@ void SPDF::removeStream(const std::string &key) {
           --pair.second;
       }
     }
+
   }
 }
 

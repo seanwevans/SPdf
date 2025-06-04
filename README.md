@@ -8,6 +8,8 @@ SPdf is a lightweight, custom implementation for managing structured streams of 
 - **Cross-Platform**: Written in C and C++ for performance and compatibility.
 - **Thread-Safe Operations**: Utilizes mutex locks for thread safety during stream manipulation.
 - **Unique Stream IDs**: Automatic generation of UUIDs for data stream identification.
+- **Buffer Duplication**: `create_stream` copies the caller's data into an internal
+  buffer, leaving ownership with the caller.
 
 ## Project Structure
 ```
