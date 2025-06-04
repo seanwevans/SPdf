@@ -13,11 +13,12 @@ SPdf is a lightweight, custom implementation for managing structured streams of 
 
 ## Project Structure
 ```
-/src
-|-- spdf.c        // Core SPDF implementation in C
-|-- spdf.cpp      // Alternative C++ implementation with OOP design
-|-- main.c        // Entry point for C-based execution
-|-- main.cpp      // Entry point for C++-based execution
+spdf.h      // C API definitions
+spdf.hpp    // C++ API definitions
+spdf.c      // C implementation
+spdf.cpp    // C++ implementation
+main.c      // C demo application
+main.cpp    // C++ demo application
 ```
 
 ## Installation
@@ -25,12 +26,12 @@ To compile the project, ensure you have `gcc` and `g++` installed.
 
 ### Compile C Version
 ```bash
-gcc spdf.c -o spdf_c -lpthread
+gcc main.c spdf.c -o spdf_c -lpthread
 ```
 
 ### Compile C++ Version
 ```bash
-g++ spdf.cpp -o spdf_cpp
+g++ main.cpp spdf.cpp -o spdf_cpp
 ```
 
 ## Usage
