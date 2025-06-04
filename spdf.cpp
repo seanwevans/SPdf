@@ -201,18 +201,19 @@ public:
       if (index < streams.size()) {
         streams.erase(streams.begin() + index);
         xref_table.erase(key);
-
-        for (auto &pair : xref_table) {
-          if (pair.second > index) {
-            --pair.second;
-          }
-        }
+        _rebuild_xref_table();
       }
     }
   }
 
 private:
   std::size_t _curr_read_idx = 0;
+  void _rebuild_xref_table() {
+    xref_table.clear();
+    for (std::size_t i = 0; i < streams.size(); ++i) {
+      xref_table[streams[i]->uuid] = i;
+    }
+  }
   void _addStream(std::unique_ptr<DataStream> stream) {
     if (_curr_read_idx == 0)
       stream->offset = 67;  // header
@@ -225,8 +226,8 @@ private:
 
     stream->reading_index = _curr_read_idx++;
     updated = stopwatch::add_timestamp();
-    xref_table[stream->uuid] = stream->offset;
     streams.push_back(std::move(stream));
+    xref_table[streams.back()->uuid] = streams.size() - 1;
   }
 };
 
