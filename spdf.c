@@ -229,10 +229,12 @@ bool add_stream(spdf_stream_t *stream, spdf_t *doc) {
   printf(" 🔒");
 
   if (stream->stream_type == DATA_STREAM) {
+
     char *tmp_id = generate_id();
     if (tmp_id)
       strncpy(stream->id, tmp_id, ID_LEN);
     free(tmp_id);
+
   }
 
   doc->xref_offset += sizeof(spdf_stream_t) + stream->data_size;
@@ -276,6 +278,9 @@ bool remove_stream(spdf_stream_t *stream, spdf_t *doc) {
       continue;
 
     doc->xref_offset -= sizeof(spdf_stream_t) + stream->data_size;
+    if (doc->streams[i]->data) {
+      free(doc->streams[i]->data);
+    }
     memset(doc->streams[i], 0, sizeof(spdf_stream_t));
     doc->streams[i]->stream_type = METADATA_STREAM;
     strncpy(doc->streams[i]->version, VERSION, VERSION_LEN);
@@ -338,6 +343,7 @@ bool destroy_spdf(spdf_t *doc) {
     }
 
   free(doc->streams);
+
 
   if (doc->lock) {
     pthread_mutex_destroy(doc->lock);
