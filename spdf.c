@@ -226,12 +226,10 @@ bool add_stream(spdf_stream_t *stream, spdf_t *doc) {
   printf(" 🔒");
 
   if (stream->stream_type == DATA_STREAM) {
-
     char *tmp_id = generate_id();
     if (tmp_id)
       strncpy(stream->id, tmp_id, ID_LEN);
     free(tmp_id);
-
   }
 
   doc->xref_offset += sizeof(spdf_stream_t) + stream->data_size;
@@ -311,10 +309,12 @@ spdf_t *create_spdf(size_t max_elements) {
   pthread_mutex_init(doc->lock, NULL);
   printf(" 🔓\n");
 
-  char *doc_id = generate_id();
-  if (doc_id)
-    strncpy(doc->id, doc_id, ID_LEN);
-  free(doc_id);
+
+  char *tmp_id = generate_id();
+  if (tmp_id)
+    strncpy(doc->id, tmp_id, ID_LEN);
+  free(tmp_id);
+
 
   doc->streams =
       (spdf_stream_t **)calloc(max_elements + 2, sizeof(spdf_stream_t *));
@@ -333,14 +333,17 @@ spdf_t *create_spdf(size_t max_elements) {
 }
 
 bool destroy_spdf(spdf_t *doc) {
-  for (size_t i = 0; i < doc->max_streams; i++)
+
+  for (size_t i = 0; i < doc->max_streams; i++) {
     if (doc->streams[i]) {
-      free(doc->streams[i]->data);
+      if (doc->streams[i]->data)
+        free(doc->streams[i]->data);
       free(doc->streams[i]);
     }
+  }
 
-  free(doc->streams);
-
+  if (doc->streams)
+    free(doc->streams);
 
   if (doc->lock) {
     pthread_mutex_destroy(doc->lock);
