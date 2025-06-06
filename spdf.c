@@ -149,8 +149,12 @@ void print_spdf(spdf_t *doc) {
   printf("  🔗 %zu\n", doc->xref_offset);
   printf("  💦 %zu\n", doc->n_streams - 2);
   for (size_t i = 2; i < doc->max_streams; i++) {
-    if (*doc->streams[i]->id) {
-      printf("    %03zu: %s\n", i - 1, doc->streams[i]->data);
+    if (doc->streams[i] && *doc->streams[i]->id) {
+      if (doc->streams[i]->mime_type == TEXT && doc->streams[i]->data) {
+        printf("    %03zu: %s\n", i - 1, (char *)doc->streams[i]->data);
+      } else {
+        printf("    %03zu: %p\n", i - 1, doc->streams[i]->data);
+      }
     }
   }
 
