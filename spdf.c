@@ -69,6 +69,7 @@ spdf_stream_t *create_stream(void *data, size_t size) {
     return NULL;
   }
 
+  memcpy(stream->data, data, size);
   stream->data_size = size;
 
   stream->updated = time(NULL);
