@@ -176,8 +176,14 @@ bool add_stream(spdf_stream_t *stream, spdf_t *doc) {
   if (stream->stream_type == DATA_STREAM)
     printf("+ 💧 %p", stream);
 
-  if (doc->n_streams >= doc->max_streams)
+  if (doc->n_streams >= doc->max_streams) {
+    if (stream) {
+      if (stream->data)
+        free(stream->data);
+      free(stream);
+    }
     return false;
+  }
 
   pthread_mutex_lock(doc->lock);
   printf(" 🔒");
